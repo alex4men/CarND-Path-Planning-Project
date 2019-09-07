@@ -7,6 +7,7 @@
 #include "Eigen-3.3/Eigen/QR"
 #include "helpers.h"
 #include "json.hpp"
+#include "spline.h"
 
 // for convenience
 using nlohmann::json;
@@ -105,36 +106,49 @@ int main() {
           // }
 
           //// Driving in circle
-          double pos_x;
-          double pos_y;
-          double angle;
-          int path_size = previous_path_x.size();
+          // double pos_x;
+          // double pos_y;
+          // double angle;
+          // int path_size = previous_path_x.size();
 
-          for (int i = 0; i < path_size; ++i) {
-            next_x_vals.push_back(previous_path_x[i]);
-            next_y_vals.push_back(previous_path_y[i]);
-          }
+          // for (int i = 0; i < path_size; ++i) {
+          //   next_x_vals.push_back(previous_path_x[i]);
+          //   next_y_vals.push_back(previous_path_y[i]);
+          // }
 
-          if (path_size == 0) {
-            pos_x = car_x;
-            pos_y = car_y;
-            angle = deg2rad(car_yaw);
-          } else {
-            pos_x = previous_path_x[path_size-1];
-            pos_y = previous_path_y[path_size-1];
+          // if (path_size == 0) {
+          //   pos_x = car_x;
+          //   pos_y = car_y;
+          //   angle = deg2rad(car_yaw);
+          // } else {
+          //   pos_x = previous_path_x[path_size-1];
+          //   pos_y = previous_path_y[path_size-1];
 
-            double pos_x2 = previous_path_x[path_size-2];
-            double pos_y2 = previous_path_y[path_size-2];
-            angle = atan2(pos_y-pos_y2,pos_x-pos_x2);
-          }
+          //   double pos_x2 = previous_path_x[path_size-2];
+          //   double pos_y2 = previous_path_y[path_size-2];
+          //   angle = atan2(pos_y-pos_y2,pos_x-pos_x2);
+          // }
 
-          double dist_inc = 0.5;
-          for (int i = 0; i < 50-path_size; ++i) {
-            pos_x += (dist_inc)*cos(angle+(i+1)*(pi()/100));
-            pos_y += (dist_inc)*sin(angle+(i+1)*(pi()/100));
-            next_x_vals.push_back(pos_x);
-            next_y_vals.push_back(pos_y);
+          // double dist_inc = 0.5;
+          // for (int i = 0; i < 50-path_size; ++i) {
+          //   pos_x += (dist_inc)*cos(angle+(i+1)*(pi()/100));
+          //   pos_y += (dist_inc)*sin(angle+(i+1)*(pi()/100));
+          //   next_x_vals.push_back(pos_x);
+          //   next_y_vals.push_back(pos_y);
             
+          // }
+
+
+
+          // Driving straight in lane
+          double dist_inc = 0.4;
+          for (int i = 0; i < 50; ++i) {
+            double next_s = car_s + (i + 1) * dist_inc;
+            double next_d = 6; // middle of the 2nd lane (one lane is 4 meters wide)
+
+            vector<double> xy = getXY(next_s, next_d, map_waypoints_s, map_waypoints_x, map_waypoints_y);
+            next_x_vals.push_back(xy[0]);
+            next_y_vals.push_back(xy[1]);
           }
 
 
