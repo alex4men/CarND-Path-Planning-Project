@@ -57,7 +57,7 @@ int main() {
   // A reference velocity to target in mph
   double ref_vel = 0;
   double max_vel = 49.5;
-  double gap_behind = 7; // Margin from the car behind for the lane change
+  double gap_behind = 10; // Margin from the car behind for the lane change
   double gap_forward = 30;
 
   h.onMessage([&ref_vel, &gap_behind, &gap_forward, &max_vel, &map_waypoints_x, &map_waypoints_y, 
