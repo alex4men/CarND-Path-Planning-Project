@@ -174,9 +174,7 @@ int main() {
               lane += 1;
               target_vel = right_lane_speed;
             } // else  - stay in the lane and follow the leading vehicle
-          } else { // Just stay in the lane 
-            target_vel = max_vel;
-          }
+          } 
           // debug
           // std::cout << "Left: " << left_occupied << ", " << left_lane_speed 
           //           << ", right: " << right_occupied << ", " << right_lane_speed << std::endl;
@@ -279,8 +277,8 @@ int main() {
             // Keep the target velocity
             if (ref_vel > target_vel + 0.224) {
               ref_vel -= 0.224;
-            } else if (ref_vel < target_vel - 0.112) {
-              ref_vel += 0.112;
+            } else if (ref_vel < target_vel - 0.2) {
+              ref_vel += 0.2;
             } else {
               ref_vel = target_vel;
             }
