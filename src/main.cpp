@@ -57,8 +57,9 @@ int main() {
   // A reference velocity to target in mph
   double ref_vel = 0;
   double max_vel = 49.5;
+  double safety_gap = 7; // Margin from the car behind for the lane change
 
-  h.onMessage([&ref_vel, &max_vel, &map_waypoints_x, &map_waypoints_y, &map_waypoints_s,
+  h.onMessage([&ref_vel, &safety_gap, &max_vel, &map_waypoints_x, &map_waypoints_y, &map_waypoints_s,
                &map_waypoints_dx, &map_waypoints_dy, &lane]
               (uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
                uWS::OpCode opCode) {
@@ -96,49 +97,85 @@ int main() {
           //   of the road.
           auto sensor_fusion = j[1]["sensor_fusion"];
 
-          /**
-           * TODO: define a path made up of (x,y) points that the car will visit
-           *   sequentially every .02 seconds
-           */          
 
           int prev_size = previous_path_x.size();
-
 
           if (prev_size > 0) {
             car_s = end_path_s;
           }
 
           bool too_close = false;
+          bool left_occupied = false;
+          bool right_occupied = false;
+          double left_lane_speed = max_vel;
+          double center_lane_speed = max_vel;
+          double right_lane_speed = max_vel;
+          double target_vel = max_vel;
 
           // Find ref_v to use
           for (int i = 0; i < sensor_fusion.size(); i++) {
-            // Car is in my lane
+            // debug
+            // std::cout << "Car: " << i << ", " << sensor_fusion[i][0] << " at " << sensor_fusion[i][6] << ", " << sensor_fusion[i][5] << std::endl;
             float d = sensor_fusion[i][6];
-            if ((2 + 4 * lane - 2) < d && d < (2 + 4 * lane + 2)) {
-              double vx = sensor_fusion[i][3];
-              double vy = sensor_fusion[i][4];
-              double check_speed = sqrt(vx * vx + vy * vy);
-              double check_car_s = sensor_fusion[i][5];
+            double vx = sensor_fusion[i][3];
+            double vy = sensor_fusion[i][4];
+            double check_speed = sqrt(vx * vx + vy * vy);
+            double check_car_s = sensor_fusion[i][5];
 
-              check_car_s += ((double)prev_size * 0.02 * check_speed); //if using previous points can project s value out in the future
+            check_car_s += ((double)prev_size * 0.02 * check_speed); //if using previous points can project s value out in the future
+            // Check if the car is in my lane
+            if ((2 + 4 * lane - 2) < d && d < (2 + 4 * lane + 2)) {
               // check s values greater than mine and s gap
               if ((check_car_s > car_s) && ((check_car_s - car_s) < 30)) {
-
-                // Do some logic here, lower reference velocity so we don't crash into the car in front of us, could
-                // also flag to try to change lanes.
-                // ref_vel = 29.5; //mph
                 too_close = true;
+                target_vel = check_speed*2.24 < target_vel ? check_speed*2.24 : target_vel;
+              }
 
-                if (lane > 0) {
-                  lane -= 1;
-                } else if (lane < 2) {
-                  lane += 1;
-                }
+            }
+            // Check if left lane is occupied
+            if (lane == 0) {
+              left_occupied = true;
+            } else if ((2 + 4 * (lane - 1) - 2) < d && d < (2 + 4 * (lane - 1) + 2)) {
+              // check s values greater than mine and s gap
+              if ((check_car_s > (car_s - safety_gap)) && ((check_car_s - car_s) < 30)) {
+                left_occupied = true;
+              } else if ((check_car_s - car_s) >= 30 && (check_car_s - car_s) >= 40) {
+                left_lane_speed = check_speed*2.24 < left_lane_speed ? check_speed*2.24 : left_lane_speed;
+              }
+
+            }
+            // Check if right lane is occupied
+            if (lane == 2) {
+              right_occupied = true;
+            } else if ((2 + 4 * (lane + 1) - 2) < d && d < (2 + 4 * (lane + 1) + 2)) {
+              // check s values greater than mine and s gap
+              if ((check_car_s > (car_s - safety_gap)) && ((check_car_s - car_s) < 30)) {
+                right_occupied = true;
+              } else if ((check_car_s - car_s) >= 30 && (check_car_s - car_s) >= 40) {
+                right_lane_speed = check_speed*2.24 < right_lane_speed ? check_speed*2.24 : right_lane_speed;
               }
             }
           }
-
-          
+          // Make a dicision what to do next
+          if (too_close) {
+            if ((!left_occupied) && (!right_occupied)) { // If in the middle lane
+              if (left_lane_speed > right_lane_speed) {
+                lane -= 1;
+                target_vel = left_lane_speed;
+              } else {
+                lane += 1;
+                target_vel = right_lane_speed;
+              }
+            } else if ((!left_occupied) && (target_vel < left_lane_speed)) { // To the left
+              lane -= 1;
+              target_vel = left_lane_speed;
+            } else if ((!right_occupied) && (target_vel < right_lane_speed)) { // To the right
+              lane += 1;
+              target_vel = right_lane_speed;
+            } // else  - stay in the lane and follow the leading vehicle
+          } else { // Just stay in the lane 
+            target_vel = max_vel;
+          }
 
 
           // A list of widely spaced (x, y) waypoints, evenly spaced at 30m
@@ -196,7 +233,7 @@ int main() {
 
           for (int i = 0; i < ptsx.size(); i++) {
             // Shift car reference angle to 0 degrees, that makes math easier
-            // Basically transform (shift + rotation) global coordinates to the car's local coordinates
+            // Basically transform (shift -> rotation) global coordinates to the car's local coordinates
             // Where the origin is the last point of the previous path (ref_x, ref_y)
             double shift_x = ptsx[i] - ref_x;
             double shift_y = ptsy[i] - ref_y;
@@ -212,7 +249,8 @@ int main() {
           // Set (x, y) points to the spline
           s.set_points(ptsx, ptsy);
 
-          // Define the actual (x, y) points we will use for the planner
+          // Define the actual (x, y) points we will use for the planner 
+          // that the car will visit sequentially every .02 seconds
           vector<double> next_x_vals;
           vector<double> next_y_vals;
 
@@ -234,13 +272,15 @@ int main() {
           // here we will always output 50 points
           for (int i = 1; i <= 50 - previous_path_x.size(); i++) {
 
-            // TODO: Add some kind of PID for ACC (Adaptive Cruise Control)
-            if (too_close) {
+            // Keep the target velocity
+            if (ref_vel > target_vel + 0.224) {
               ref_vel -= 0.224;
-            } else if (ref_vel < max_vel) {
-              ref_vel += 0.224;
+            } else if (ref_vel < target_vel - 0.112) {
+              ref_vel += 0.112;
+            } else {
+              ref_vel = target_vel;
             }
-            // 
+            
             double N = (target_dist / (0.02 * ref_vel / 2.24)); // 2.24 - to convert from mph to m/s
 
             double x_point = x_add_on + (target_x) / N;
@@ -251,7 +291,7 @@ int main() {
             double x_ref = x_point;
             double y_ref = y_point;
 
-            // Rotate back to normal after rotating it earlier
+            // Rotate back to normal after rotating it earlier (rotation -> shift)
             x_point = (x_ref * cos(ref_yaw) - y_ref * sin(ref_yaw));
             y_point = (x_ref * sin(ref_yaw) + y_ref * cos(ref_yaw));
 
@@ -263,59 +303,6 @@ int main() {
           }
 
 
-
-          //// Driving straight
-          // double dist_inc = 0.4;
-          // for (int i = 0; i < 50; ++i) {
-          //   next_x_vals.push_back(car_x+(dist_inc*i)*cos(deg2rad(car_yaw)));
-          //   next_y_vals.push_back(car_y+(dist_inc*i)*sin(deg2rad(car_yaw)));
-          // }
-
-          //// Driving in circle
-          // double pos_x;
-          // double pos_y;
-          // double angle;
-          // int path_size = previous_path_x.size();
-
-          // for (int i = 0; i < path_size; ++i) {
-          //   next_x_vals.push_back(previous_path_x[i]);
-          //   next_y_vals.push_back(previous_path_y[i]);
-          // }
-
-          // if (path_size == 0) {
-          //   pos_x = car_x;
-          //   pos_y = car_y;
-          //   angle = deg2rad(car_yaw);
-          // } else {
-          //   pos_x = previous_path_x[path_size-1];
-          //   pos_y = previous_path_y[path_size-1];
-
-          //   double pos_x2 = previous_path_x[path_size-2];
-          //   double pos_y2 = previous_path_y[path_size-2];
-          //   angle = atan2(pos_y-pos_y2,pos_x-pos_x2);
-          // }
-
-          // double dist_inc = 0.5;
-          // for (int i = 0; i < 50-path_size; ++i) {
-          //   pos_x += (dist_inc)*cos(angle+(i+1)*(pi()/100));
-          //   pos_y += (dist_inc)*sin(angle+(i+1)*(pi()/100));
-          //   next_x_vals.push_back(pos_x);
-          //   next_y_vals.push_back(pos_y);
-            
-          // }
-
-
-
-          // Driving straight in lane
-          // double dist_inc = 0.4;
-          // for (int i = 0; i < 50; ++i) {
-          //   double next_s = car_s + (i + 1) * dist_inc;
-          //   double next_d = 6; // middle of the 2nd lane (one lane is 4 meters wide)
-
-          //   vector<double> xy = getXY(next_s, next_d, map_waypoints_s, map_waypoints_x, map_waypoints_y);
-          //   next_x_vals.push_back(xy[0]);
-          //   next_y_vals.push_back(xy[1]);
-          // }
 
 
           json msgJson;
