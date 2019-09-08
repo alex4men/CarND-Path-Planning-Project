@@ -128,15 +128,17 @@ int main() {
                 // also flag to try to change lanes.
                 // ref_vel = 29.5; //mph
                 too_close = true;
+
+                if (lane > 0) {
+                  lane -= 1;
+                } else if (lane < 2) {
+                  lane += 1;
+                }
               }
             }
           }
 
-          if (too_close) {
-            ref_vel -= 0.224;
-          } else if (ref_vel < max_vel) {
-            ref_vel += 0.224;
-          }
+          
 
 
           // A list of widely spaced (x, y) waypoints, evenly spaced at 30m
@@ -226,12 +228,21 @@ int main() {
           double target_dist = sqrt((target_x) * (target_x) + (target_y) * (target_y));
 
           double x_add_on = 0;
-          double N = (target_dist / (0.02 * ref_vel / 2.24));
 
 
           // Fill up the rest of our path planner after filling it with previous points,
           // here we will always output 50 points
           for (int i = 1; i <= 50 - previous_path_x.size(); i++) {
+
+            // TODO: Add some kind of PID for ACC (Adaptive Cruise Control)
+            if (too_close) {
+              ref_vel -= 0.224;
+            } else if (ref_vel < max_vel) {
+              ref_vel += 0.224;
+            }
+            // 
+            double N = (target_dist / (0.02 * ref_vel / 2.24)); // 2.24 - to convert from mph to m/s
+
             double x_point = x_add_on + (target_x) / N;
             double y_point = s(x_point);
 
