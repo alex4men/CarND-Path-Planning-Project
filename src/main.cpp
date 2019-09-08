@@ -57,10 +57,11 @@ int main() {
   // A reference velocity to target in mph
   double ref_vel = 0;
   double max_vel = 49.5;
-  double safety_gap = 7; // Margin from the car behind for the lane change
+  double gap_behind = 7; // Margin from the car behind for the lane change
+  double gap_forward = 30;
 
-  h.onMessage([&ref_vel, &safety_gap, &max_vel, &map_waypoints_x, &map_waypoints_y, &map_waypoints_s,
-               &map_waypoints_dx, &map_waypoints_dy, &lane]
+  h.onMessage([&ref_vel, &gap_behind, &gap_forward, &max_vel, &map_waypoints_x, &map_waypoints_y, 
+               &map_waypoints_s, &map_waypoints_dx, &map_waypoints_dy, &lane]
               (uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
                uWS::OpCode opCode) {
     // "42" at the start of the message means there's a websocket message event.
@@ -126,7 +127,7 @@ int main() {
             // Check if the car is in my lane
             if ((2 + 4 * lane - 2) < d && d < (2 + 4 * lane + 2)) {
               // check s values greater than mine and s gap
-              if ((check_car_s > car_s) && ((check_car_s - car_s) < 30)) {
+              if ((check_car_s > car_s) && ((check_car_s - car_s) < gap_forward)) {
                 too_close = true;
                 target_vel = check_speed*2.24 < target_vel ? check_speed*2.24 : target_vel;
               }
@@ -137,9 +138,9 @@ int main() {
               left_occupied = true;
             } else if ((2 + 4 * (lane - 1) - 2) < d && d < (2 + 4 * (lane - 1) + 2)) {
               // check s values greater than mine and s gap
-              if ((check_car_s > (car_s - safety_gap)) && ((check_car_s - car_s) < 30)) {
+              if ((check_car_s > (car_s - gap_behind)) && ((check_car_s - car_s) < gap_forward)) {
                 left_occupied = true;
-              } else if ((check_car_s - car_s) >= 30 && (check_car_s - car_s) >= 40) {
+              } else if (((check_car_s - car_s) >= gap_forward) && ((check_car_s - car_s) < gap_forward + 10)) {
                 left_lane_speed = check_speed*2.24 < left_lane_speed ? check_speed*2.24 : left_lane_speed;
               }
 
@@ -149,9 +150,9 @@ int main() {
               right_occupied = true;
             } else if ((2 + 4 * (lane + 1) - 2) < d && d < (2 + 4 * (lane + 1) + 2)) {
               // check s values greater than mine and s gap
-              if ((check_car_s > (car_s - safety_gap)) && ((check_car_s - car_s) < 30)) {
+              if ((check_car_s > (car_s - gap_behind)) && ((check_car_s - car_s) < gap_forward)) {
                 right_occupied = true;
-              } else if ((check_car_s - car_s) >= 30 && (check_car_s - car_s) >= 40) {
+              } else if (((check_car_s - car_s) >= gap_forward) && ((check_car_s - car_s) < gap_forward + 10)) {
                 right_lane_speed = check_speed*2.24 < right_lane_speed ? check_speed*2.24 : right_lane_speed;
               }
             }
@@ -176,6 +177,9 @@ int main() {
           } else { // Just stay in the lane 
             target_vel = max_vel;
           }
+          // debug
+          // std::cout << "Left: " << left_occupied << ", " << left_lane_speed 
+          //           << ", right: " << right_occupied << ", " << right_lane_speed << std::endl;
 
 
           // A list of widely spaced (x, y) waypoints, evenly spaced at 30m
