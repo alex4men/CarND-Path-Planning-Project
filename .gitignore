@@ -42,3 +42,5 @@ CTestTestfile.cmake
 *.app
 
 /build
+
+.DS_Store

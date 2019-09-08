@@ -1,6 +1,40 @@
 # CarND-Path-Planning-Project
 Self-Driving Car Engineer Nanodegree Program
-   
+
+---
+## Writeup
+![](media/success.gif)
+
+This is the evidence that my path planner is able to drive way more than 4.32 miles without incident. :)
+
+### General approach
+As a base I used the code, provided in the Q&A session. It used Frenet coordinates and spline library for trajectory generation.
+I added smooth speed following, adjacent lanes checking and some logic to change lanes.
+All of my code is in main.cpp.
+
+### The car drives according to the speed limit.
+As suggested in the Q&A session, I've hardcoded the limit of 49.5 mph in variable 'max_vel' and a if the lane is clear, the variable target_vel remains equals max_vel, otherwise if we are not changing lanes, it is set to the speed of the car that we are following.
+
+### Max Acceleration and Jerk are not Exceeded
+To avoid high jerk and acceleration I generate new path starting from the previous path and use the spline library and set further waypoints on 30, 60 and 90 meters, as advised in Q&A session. Also I use increments of velocity of 0.224 for braking and 0.2 for accelerating, so it never goes higher than 5m/s^2 (0.224mph = 0.1m/s, 0.1m/s * 50Hz = 5m/s velocity change per second).
+
+### Car does not have collisions.
+If we are not changing lanes, we use the speed of the car that we are following as target speed.
+
+When we change lane we use the data from sensor fusion and first see that no cars in adjacent lanes will not be in the safety zone (10m behind and 30m forward) to the position where we could be if we will take a lane change. And we start to accelerate to the speed of the car in adjacent lane at the same time as we move to the side to synchronise our speeds.
+
+For an extra level of safety, I've added emergency slow down, when something in our way within 10 meters on line 136.
+
+### The car stays in its lane, except for the time between changing lanes.
+
+We use Frenet coordinates and set the position (d coordinate) of the car to the center of a lane on lines 231-233.
+
+### The car is able to change lanes
+
+We change lanes only when it's safe, as described above. The car decides to make a lane change only when the speed of the car in the adjacent lane is bigger than in our current lane. And if we are in the middle lane, we compare in which adjacent lane the speed is higher.
+
+Smoothness of lane changes comes for free by using spline library and assigning sparse waypoints in front of us within 30, 60 and 90 meters, so when we change lanes our lateral acceleration is within limits.
+
 ### Simulator.
 You can download the Term3 Simulator which contains the Path Planning Project from the [releases tab (https://github.com/udacity/self-driving-car-sim/releases/tag/T3_v1.2).  
 
@@ -8,6 +42,8 @@ To run the simulator on Mac/Linux, first make the binary file executable with th
 ```shell
 sudo chmod u+x {simulator_file_name}
 ```
+
+## Original project description
 
 ### Goals
 In this project your goal is to safely navigate around a virtual highway with other traffic that is driving +-10 MPH of the 50 MPH speed limit. You will be provided the car's localization and sensor fusion data, there is also a sparse map list of waypoints around the highway. The car should try to go as close as possible to the 50 MPH speed limit, which means passing slower traffic when possible, note that other cars will try to change lanes too. The car should avoid hitting other cars at all cost as well as driving inside of the marked road lanes at all times, unless going from one lane to another. The car should be able to make one complete loop around the 6946m highway. Since the car is trying to go 50 MPH, it should take a little over 5 minutes to complete 1 loop. Also the car should not experience total acceleration over 10 m/s^2 and jerk that is greater than 10 m/s^3.
@@ -43,13 +79,13 @@ Here is the data provided from the Simulator to the C++ Program
 #### Previous path data given to the Planner
 
 //Note: Return the previous list but with processed points removed, can be a nice tool to show how far along
-the path has processed since last time. 
+the path has processed since last time.
 
 ["previous_path_x"] The previous list of x points previously given to the simulator
 
 ["previous_path_y"] The previous list of y points previously given to the simulator
 
-#### Previous path's end s and d values 
+#### Previous path's end s and d values
 
 ["end_path_s"] The previous list's last point's frenet s value
 
@@ -57,7 +93,7 @@ the path has processed since last time.
 
 #### Sensor Fusion Data, a list of all other car's attributes on the same side of the road. (No Noise)
 
-["sensor_fusion"] A 2d vector of cars and then that car's [car's unique ID, car's x position in map coordinates, car's y position in map coordinates, car's x velocity in m/s, car's y velocity in m/s, car's s position in frenet coordinates, car's d position in frenet coordinates. 
+["sensor_fusion"] A 2d vector of cars and then that car's [car's unique ID, car's x position in map coordinates, car's y position in map coordinates, car's x velocity in m/s, car's y velocity in m/s, car's s position in frenet coordinates, car's d position in frenet coordinates.
 
 ## Details
 
@@ -87,7 +123,7 @@ A really helpful resource for doing this project and creating smooth trajectorie
   * Run either `install-mac.sh` or `install-ubuntu.sh`.
   * If you install from source, checkout to commit `e94b6e1`, i.e.
     ```
-    git clone https://github.com/uWebSockets/uWebSockets 
+    git clone https://github.com/uWebSockets/uWebSockets
     cd uWebSockets
     git checkout e94b6e1
     ```
@@ -142,4 +178,3 @@ still be compilable with cmake and make./
 
 ## How to write a README
 A well written README file can enhance your project and portfolio.  Develop your abilities to create professional README files by completing [this free course](https://www.udacity.com/course/writing-readmes--ud777).
-
