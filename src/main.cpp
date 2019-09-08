@@ -101,6 +101,7 @@ int main() {
 
           int prev_size = previous_path_x.size();
 
+          double car_current_s = car_s;
           if (prev_size > 0) {
             car_s = end_path_s;
           }
@@ -122,6 +123,7 @@ int main() {
             double vy = sensor_fusion[i][4];
             double check_speed = sqrt(vx * vx + vy * vy);
             double check_car_s = sensor_fusion[i][5];
+            double check_car_current_s = check_car_s;
 
             check_car_s += ((double)prev_size * 0.02 * check_speed); //if using previous points can project s value out in the future
             // Check if the car is in my lane
@@ -130,6 +132,11 @@ int main() {
               if ((check_car_s > car_s) && ((check_car_s - car_s) < gap_forward)) {
                 too_close = true;
                 target_vel = check_speed*2.24 < target_vel ? check_speed*2.24 : target_vel;
+              }
+              // Emergency stop if something is blocking our way
+              if (0 < check_car_current_s - car_current_s && check_car_current_s - car_current_s < 10) { 
+                too_close = true;
+                target_vel = 0;
               }
 
             }
